@@ -46,17 +46,103 @@ warnings.filterwarnings('ignore')
 
 st.set_page_config(page_title="Sistema de DAFs V3.0", page_icon="🎯", layout="wide", initial_sidebar_state="expanded")
 
-# CSS
+# CSS com melhorias de UX
 st.markdown("""
 <style>
     .main-header {font-size: 2.3rem; font-weight: bold; text-align: center; margin-bottom: 1.5rem; padding: 18px; background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); border-radius: 12px; color: white;}
     .sub-header {font-size: 1.4rem; font-weight: bold; color: #1e3a5f; margin-top: 1.5rem; margin-bottom: 1rem; border-bottom: 2px solid #1e3a5f; padding-bottom: 8px;}
     div[data-testid="stPlotlyChart"] {border: 1px solid #e0e0e0; border-radius: 8px; padding: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
-    div[data-testid="stMetric"] {background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
+    div[data-testid="stMetric"] {background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s;}
+    div[data-testid="stMetric"]:hover {transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1);}
     .alert-critico {background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 12px; border-radius: 6px; margin: 10px 0;}
     .alert-atencao {background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 6px; margin: 10px 0;}
     .alert-positivo {background-color: #f0fdf4; border-left: 4px solid #22c55e; padding: 12px; border-radius: 6px; margin: 10px 0;}
     .info-box {background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px; border-radius: 6px; margin: 10px 0;}
+
+    /* Tooltips e cards customizados */
+    .card-indicador {
+        position: relative;
+        padding: 1rem;
+        border-radius: 10px;
+        color: white;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin: 5px 0;
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: help;
+    }
+    .card-indicador:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    }
+    .card-indicador .tooltip-text {
+        visibility: hidden;
+        background-color: #333;
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 10px 12px;
+        position: absolute;
+        z-index: 1000;
+        bottom: 105%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 220px;
+        font-size: 0.75rem;
+        opacity: 0;
+        transition: opacity 0.3s;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .card-indicador:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+    .card-indicador .tooltip-text::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #333 transparent transparent transparent;
+    }
+
+    /* Dica de contexto */
+    .context-tip {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 1px solid #7dd3fc;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 10px 0;
+        font-size: 0.9rem;
+        color: #0369a1;
+    }
+    .context-tip b {
+        color: #0c4a6e;
+    }
+
+    /* Legenda de cores */
+    .legenda-cores {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 10px 0;
+        padding: 10px;
+        background-color: #f8fafc;
+        border-radius: 8px;
+    }
+    .legenda-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.8rem;
+    }
+    .legenda-cor {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -154,18 +240,53 @@ def get_color_nivel(nivel):
              'BAIXO': '#f97316', 'CRITICO': '#ef4444', 'ALTO': '#f97316', 'N/A': '#6b7280'}
     return cores.get(str(nivel).upper() if nivel else 'N/A', '#6b7280')
 
-def criar_card_indicador(label, valor, nivel, icone="📊"):
+def criar_card_indicador(label, valor, nivel, icone="📊", tooltip=""):
+    """Cria um card de indicador com tooltip explicativo."""
     cor = get_color_nivel(nivel)
+    tooltip_html = f'<span class="tooltip-text">{tooltip}</span>' if tooltip else ''
     st.markdown(f"""
-    <div style='background: linear-gradient(135deg, {cor} 0%, {cor}dd 100%); 
-                padding: 1rem; border-radius: 10px; color: white; 
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 5px 0; text-align: center;'>
+    <div class='card-indicador' style='background: linear-gradient(135deg, {cor} 0%, {cor}dd 100%);'>
+        {tooltip_html}
         <div style='font-size: 1.5rem;'>{icone}</div>
         <div style='font-size: 0.8rem; opacity: 0.9;'>{label}</div>
         <div style='font-size: 1.8rem; font-weight: bold;'>{valor}</div>
         <div style='font-size: 0.75rem; opacity: 0.8;'>{nivel}</div>
     </div>
     """, unsafe_allow_html=True)
+
+# Dicionário de tooltips para KPIs - facilita manutenção e consistência
+TOOLTIPS = {
+    # KPIs Principais
+    'empresas': 'Total de empresas monitoradas pelo sistema de malhas fiscais. Inclui todas as empresas com pelo menos uma inconsistência detectada.',
+    'dafs': 'Delegacias de Fiscalização responsáveis pelo acompanhamento das empresas. Cada DAF monitora um conjunto específico de contribuintes.',
+    'contadores': 'Profissionais contábeis responsáveis pelas empresas monitoradas. Um contador pode atender várias empresas.',
+    'tipos': 'Quantidade de tipos distintos de inconsistências fiscais identificadas pelo sistema (ex: divergência DIME x NFe, omissão de receitas, etc).',
+    'valor_total': 'Soma de todos os valores de ICMS envolvidos nas inconsistências (existentes + resolvidas). Representa o potencial total de recuperação.',
+
+    # Status das Inconsistências
+    'existentes': 'Inconsistências ativas que aguardam regularização pelo contribuinte. São as pendências atuais que precisam de ação.',
+    'resolvida_malha': 'Inconsistências resolvidas de forma autônoma pelo contribuinte (via DDE ou retificação). Não exigiu ação fiscal.',
+    'resolvida_fiscal': 'Inconsistências resolvidas via PAF (Processo Administrativo Fiscal) ou exclusão por auditor. Exigiu intervenção do fisco.',
+    'em_fiscalizacao': 'Inconsistências que estão atualmente em processo de fiscalização (PAF aberto). Aguardando conclusão.',
+
+    # Taxas e Metas
+    'taxa_autonomia': 'Percentual de inconsistências resolvidas pelo próprio contribuinte, sem necessidade de fiscalização. META: ≥ 60%. Quanto maior, melhor a autorregularização.',
+    'taxa_fiscalizacao': 'Percentual de inconsistências que necessitaram de fiscalização para resolução. META: ≤ 20%. Quanto menor, melhor.',
+
+    # Valores
+    'valor_existentes': 'Soma dos valores de ICMS das inconsistências ativas/pendentes. Representa o potencial de arrecadação a recuperar.',
+    'valor_resolvida_malha': 'Valor de ICMS recuperado de forma autônoma pelos contribuintes. Indica eficácia do sistema de autorregularização.',
+    'valor_em_fiscalizacao': 'Valor de ICMS das inconsistências atualmente em processo de fiscalização.',
+
+    # Exclusões
+    'exclusoes': 'Inconsistências removidas manualmente por auditores fiscais (cd_situacao = 11). Diferente de resolvida pela malha. Requer monitoramento.',
+    'taxa_exclusao': 'Percentual de inconsistências excluídas manualmente sobre o total resolvido. Taxas altas (>10%) merecem investigação.',
+    'nivel_risco': 'Classificação de risco baseada na taxa de exclusão: CRÍTICO (≥20%), ALTO (10-20%), MÉDIO (5-10%), BAIXO (<5%).',
+
+    # Performance
+    'score_autonomia': 'Pontuação calculada considerando taxa de autonomia e volume. Varia de 0 a 100. Quanto maior, melhor a performance.',
+    'nivel_autonomia': 'Classificação baseada no score: EXCELENTE (≥80), BOM (60-79), MÉDIO (40-59), BAIXO (20-39), CRÍTICO (<20).',
+}
 
 def calcular_kpis_gerais(dados):
     df_kpis = dados.get('kpis_sistema', pd.DataFrame())
@@ -212,49 +333,73 @@ def criar_filtros_sidebar(dados):
 
 def pagina_dashboard_executivo(dados, filtros):
     st.markdown("<h1 class='main-header'>📊 Dashboard Executivo - Sistema de Malhas V3.0</h1>", unsafe_allow_html=True)
-    
+
+    # Dica de contexto inicial
+    st.markdown("""
+    <div class='context-tip'>
+    <b>💡 Dica:</b> Passe o mouse sobre os indicadores para ver explicações detalhadas.
+    Os cards coloridos indicam o nível de performance: <span style='color:#10b981'>■</span> Excelente
+    <span style='color:#84cc16'>■</span> Bom <span style='color:#fbbf24'>■</span> Médio
+    <span style='color:#f97316'>■</span> Baixo <span style='color:#ef4444'>■</span> Crítico
+    </div>
+    """, unsafe_allow_html=True)
+
     kpis = calcular_kpis_gerais(dados)
-    
+
     # KPIs - Linha 1
     st.markdown("<div class='sub-header'>📈 Indicadores Principais</div>", unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
-        st.metric("🏢 Empresas", f"{kpis['total_empresas']:,}")
+        st.metric("🏢 Empresas", f"{kpis['total_empresas']:,}",
+                  help=TOOLTIPS['empresas'])
     with col2:
-        st.metric("👥 DAFs", f"{kpis['total_dafs']}")
+        st.metric("👥 DAFs", f"{kpis['total_dafs']}",
+                  help=TOOLTIPS['dafs'])
     with col3:
-        st.metric("📋 Contadores", f"{kpis['total_contadores']:,}")
+        st.metric("📋 Contadores", f"{kpis['total_contadores']:,}",
+                  help=TOOLTIPS['contadores'])
     with col4:
-        st.metric("🔢 Tipos", f"{kpis['total_tipos']}")
+        st.metric("🔢 Tipos", f"{kpis['total_tipos']}",
+                  help=TOOLTIPS['tipos'])
     with col5:
-        st.metric("💰 Valor Total", formatar_valor_br(kpis['total_valor']))
-    
+        st.metric("💰 Valor Total", formatar_valor_br(kpis['total_valor']),
+                  help=TOOLTIPS['valor_total'])
+
     # KPIs - Linha 2
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
-        st.metric("🔴 Existentes", f"{kpis['total_existentes']:,}", help="Ativas aguardando regularização")
+        st.metric("🔴 Existentes", f"{kpis['total_existentes']:,}",
+                  help=TOOLTIPS['existentes'])
     with col2:
-        st.metric("✅ Resol. Malha", f"{kpis['total_resolvida_malha']:,}", help="Contribuinte regularizou")
+        st.metric("✅ Resol. Malha", f"{kpis['total_resolvida_malha']:,}",
+                  help=TOOLTIPS['resolvida_malha'])
     with col3:
-        st.metric("⚖️ Resol. Fiscal", f"{kpis['total_resolvida_fiscal']:,}", help="Resolvidas via PAF/Exclusão")
+        st.metric("⚖️ Resol. Fiscal", f"{kpis['total_resolvida_fiscal']:,}",
+                  help=TOOLTIPS['resolvida_fiscal'])
     with col4:
         delta = "✓ Meta 60%" if kpis['taxa_autonomia'] >= 60 else f"↓ {60-kpis['taxa_autonomia']:.1f}pp"
-        st.metric("🎯 Taxa Autonomia", f"{kpis['taxa_autonomia']:.1f}%", delta=delta)
+        st.metric("🎯 Taxa Autonomia", f"{kpis['taxa_autonomia']:.1f}%", delta=delta,
+                  help=TOOLTIPS['taxa_autonomia'])
     with col5:
         delta = "✓ Meta ≤20%" if kpis['taxa_fiscalizacao'] <= 20 else f"↑ {kpis['taxa_fiscalizacao']-20:.1f}pp"
-        st.metric("🚨 Taxa Fiscalização", f"{kpis['taxa_fiscalizacao']:.1f}%", delta=delta, delta_color="inverse")
-    
+        st.metric("🚨 Taxa Fiscalização", f"{kpis['taxa_fiscalizacao']:.1f}%", delta=delta, delta_color="inverse",
+                  help=TOOLTIPS['taxa_fiscalizacao'])
+
     # KPIs - Linha 3 (VALORES)
-    st.markdown("<div class='sub-header'>💰 Valores</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-header'>💰 Valores por Status</div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("💵 Valor Existentes", formatar_valor_br(kpis['valor_existentes']))
+        st.metric("💵 Valor Existentes", formatar_valor_br(kpis['valor_existentes']),
+                  help=TOOLTIPS['valor_existentes'])
     with col2:
-        st.metric("💵 Valor Resol. Malha", formatar_valor_br(kpis['valor_resolvida_malha']))
+        st.metric("💵 Valor Resol. Malha", formatar_valor_br(kpis['valor_resolvida_malha']),
+                  help=TOOLTIPS['valor_resolvida_malha'])
     with col3:
-        st.metric("💵 Valor Em Fiscal.", formatar_valor_br(kpis['valor_em_fiscalizacao']))
+        st.metric("💵 Valor Em Fiscal.", formatar_valor_br(kpis['valor_em_fiscalizacao']),
+                  help=TOOLTIPS['valor_em_fiscalizacao'])
     with col4:
-        st.metric("💵 Valor Total", formatar_valor_br(kpis['total_valor']))
+        st.metric("💵 Valor Total", formatar_valor_br(kpis['total_valor']),
+                  help=TOOLTIPS['valor_total'])
     
     st.divider()
     
@@ -351,14 +496,23 @@ def pagina_analise_exclusoes(dados, filtros):
         st.error("Dados não disponíveis. Execute: 01f_tabela_exclusoes_por_daf.sql")
         return
     
+    # Dica de contexto
+    st.markdown("""
+    <div class='context-tip'>
+    <b>💡 O que são exclusões?</b> São inconsistências removidas manualmente por auditores (cd_situacao=11).
+    Diferente de "Resolvida Malha" (contribuinte regularizou) ou "Resolvida DDE" (pagamento).
+    <b>Taxas altas de exclusão podem indicar uso inadequado e merecem investigação.</b>
+    </div>
+    """, unsafe_allow_html=True)
+
     # KPIs de Risco
     st.markdown("<div class='sub-header'>📊 Visão Geral de Exclusões</div>", unsafe_allow_html=True)
-    
+
     col1, col2, col3, col4, col5 = st.columns(5)
-    
+
     total_dafs = len(df_principal)
     total_exclusoes = df_principal[col_exclusao].sum() if col_exclusao in df_principal.columns else 0
-    
+
     # Calcular níveis de risco
     if 'nivel_risco_exclusao' in df_principal.columns:
         criticos = len(df_principal[df_principal['nivel_risco_exclusao'] == 'CRITICO'])
@@ -370,35 +524,44 @@ def pagina_analise_exclusoes(dados, filtros):
         medios = len(df_principal[(df_principal[col_taxa] >= 5) & (df_principal[col_taxa] < 10)])
     else:
         criticos, altos, medios = 0, 0, 0
-    
+
     with col1:
-        st.metric("Total Exclusões", f"{int(total_exclusoes):,}")
+        st.metric("Total Exclusões", f"{int(total_exclusoes):,}",
+                  help=TOOLTIPS['exclusoes'])
     with col2:
-        st.metric("🔴 CRÍTICOS (≥20%)", criticos)
+        st.metric("🔴 CRÍTICOS (≥20%)", criticos,
+                  help="DAFs com taxa de exclusão igual ou superior a 20%. Requer investigação imediata.")
     with col3:
-        st.metric("🟠 ALTOS (10-20%)", altos)
+        st.metric("🟠 ALTOS (10-20%)", altos,
+                  help="DAFs com taxa de exclusão entre 10% e 20%. Monitoramento recomendado.")
     with col4:
-        st.metric("🟡 MÉDIOS (5-10%)", medios)
+        st.metric("🟡 MÉDIOS (5-10%)", medios,
+                  help="DAFs com taxa de exclusão entre 5% e 10%. Dentro do aceitável, mas atenção.")
     with col5:
         pct_alerta = ((criticos + altos) / total_dafs * 100) if total_dafs > 0 else 0
-        st.metric("% DAFs em Alerta", f"{pct_alerta:.1f}%")
-    
+        st.metric("% DAFs em Alerta", f"{pct_alerta:.1f}%",
+                  help="Percentual de DAFs classificadas como risco CRÍTICO ou ALTO.")
+
     # Segunda linha de KPIs
     if 'valor_exclusoes' in df_principal.columns:
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             valor_total = df_principal['valor_exclusoes'].sum()
-            st.metric("💰 Valor Total Excluído", formatar_valor_br(valor_total))
+            st.metric("💰 Valor Total Excluído", formatar_valor_br(valor_total),
+                      help="Soma dos valores de ICMS de todas as inconsistências excluídas. Representa potencial perda de arrecadação.")
         with col2:
             if 'qtd_empresas_afetadas' in df_principal.columns:
                 emp_afetadas = df_principal['qtd_empresas_afetadas'].sum()
-                st.metric("🏢 Empresas Afetadas", f"{int(emp_afetadas):,}")
+                st.metric("🏢 Empresas Afetadas", f"{int(emp_afetadas):,}",
+                          help="Número de empresas distintas que tiveram inconsistências excluídas.")
         with col3:
             if 'qtd_motivos_distintos' in df_principal.columns:
                 motivos = df_principal['qtd_motivos_distintos'].sum()
-                st.metric("📋 Motivos Distintos", f"{int(motivos):,}")
+                st.metric("📋 Motivos Distintos", f"{int(motivos):,}",
+                          help="Quantidade de justificativas diferentes utilizadas para exclusões.")
         with col4:
-            st.metric("👥 DAFs com Exclusões", total_dafs)
+            st.metric("👥 DAFs com Exclusões", total_dafs,
+                      help="Número de DAFs que realizaram ao menos uma exclusão manual.")
     
     st.divider()
     
@@ -572,26 +735,31 @@ def pagina_exclusoes_detalhada(dados, filtros):
     
     # KPIs Gerais
     st.markdown("<div class='sub-header'>📊 KPIs Gerais de Exclusões</div>", unsafe_allow_html=True)
-    
+
     col1, col2, col3, col4, col5 = st.columns(5)
-    
+
     if not df_fiscais.empty:
         total_fiscais = len(df_fiscais)
         total_exclusoes = df_fiscais['qtd_exclusoes_criadas'].sum() if 'qtd_exclusoes_criadas' in df_fiscais.columns else 0
         total_incons = df_fiscais['qtd_incons_excluidas'].sum() if 'qtd_incons_excluidas' in df_fiscais.columns else 0
         total_valor = df_fiscais['valor_incons_excluidas'].sum() if 'valor_incons_excluidas' in df_fiscais.columns else 0
         total_empresas = df_fiscais['qtd_empresas_afetadas'].sum() if 'qtd_empresas_afetadas' in df_fiscais.columns else 0
-        
+
         with col1:
-            st.metric("👤 Fiscais Excluindo", f"{total_fiscais:,}")
+            st.metric("👤 Fiscais Excluindo", f"{total_fiscais:,}",
+                      help="Quantidade de fiscais que criaram ao menos uma solicitação de exclusão.")
         with col2:
-            st.metric("📋 Exclusões Criadas", f"{int(total_exclusoes):,}")
+            st.metric("📋 Exclusões Criadas", f"{int(total_exclusoes):,}",
+                      help="Número total de solicitações de exclusão registradas. Cada exclusão pode afetar múltiplas inconsistências.")
         with col3:
-            st.metric("📊 Incons. Excluídas", f"{int(total_incons):,}")
+            st.metric("📊 Incons. Excluídas", f"{int(total_incons):,}",
+                      help="Total de inconsistências que foram excluídas pelas solicitações. Uma exclusão pode abranger várias inconsistências.")
         with col4:
-            st.metric("💰 Valor Excluído", formatar_valor_br(total_valor))
+            st.metric("💰 Valor Excluído", formatar_valor_br(total_valor),
+                      help="Soma do valor de ICMS das inconsistências excluídas. Representa potencial não arrecadado.")
         with col5:
-            st.metric("🏢 Empresas Afetadas", f"{int(total_empresas):,}")
+            st.metric("🏢 Empresas Afetadas", f"{int(total_empresas):,}",
+                      help="Quantidade de empresas distintas que tiveram inconsistências excluídas.")
     
     st.divider()
     
@@ -774,29 +942,42 @@ def pagina_exclusoes_detalhada(dados, filtros):
 
 def pagina_performance_dafs(dados, filtros):
     st.markdown("<h1 class='main-header'>🏢 Performance das DAFs</h1>", unsafe_allow_html=True)
-    
+
+    # Dica de contexto
+    st.markdown("""
+    <div class='context-tip'>
+    <b>💡 Como interpretar:</b> Cada DAF é avaliada pela sua <b>Taxa de Autonomia</b> (% de inconsistências resolvidas pelo contribuinte)
+    e <b>Taxa de Fiscalização</b> (% que exigiu ação fiscal). O <b>Score</b> combina esses fatores em uma nota de 0-100.
+    </div>
+    """, unsafe_allow_html=True)
+
     df_dafs = dados.get('performance_dafs', pd.DataFrame())
     if df_dafs.empty:
         st.error("Dados não disponíveis.")
         return
-    
+
     # KPIs
     st.markdown("<div class='sub-header'>📊 Visão Geral</div>", unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
-        st.metric("Total DAFs", len(df_dafs))
+        st.metric("Total DAFs", len(df_dafs),
+                  help="Número total de Delegacias de Fiscalização monitoradas.")
     with col2:
         excelentes = len(df_dafs[df_dafs['ind_autonomia_nivel'] == 'EXCELENTE']) if 'ind_autonomia_nivel' in df_dafs.columns else 0
-        st.metric("Excelentes", excelentes)
+        st.metric("Excelentes", excelentes,
+                  help="DAFs com score de autonomia ≥ 80. Alta taxa de autorregularização pelos contribuintes.")
     with col3:
         criticos = len(df_dafs[df_dafs['ind_autonomia_nivel'] == 'CRITICO']) if 'ind_autonomia_nivel' in df_dafs.columns else 0
-        st.metric("Críticos", criticos)
+        st.metric("Críticos", criticos,
+                  help="DAFs com score de autonomia < 20. Baixa autorregularização, pode indicar problemas.")
     with col4:
         media_autonomia = df_dafs['taxa_autonomia_pct'].mean() if 'taxa_autonomia_pct' in df_dafs.columns else 0
-        st.metric("Média Autonomia", f"{media_autonomia:.1f}%")
+        st.metric("Média Autonomia", f"{media_autonomia:.1f}%",
+                  help=TOOLTIPS['taxa_autonomia'])
     with col5:
         total_valor = df_dafs['valor_total_inconsistencias'].sum() if 'valor_total_inconsistencias' in df_dafs.columns else 0
-        st.metric("Valor Total", formatar_valor_br(total_valor))
+        st.metric("Valor Total", formatar_valor_br(total_valor),
+                  help="Soma de todos os valores de ICMS em inconsistências de todas as DAFs.")
     
     st.divider()
     
@@ -906,33 +1087,46 @@ def pagina_performance_dafs(dados, filtros):
 
 def pagina_tipos_inconsistencia(dados, filtros):
     st.markdown("<h1 class='main-header'>🔍 Tipos de Inconsistência</h1>", unsafe_allow_html=True)
-    
+
+    # Dica de contexto
+    st.markdown("""
+    <div class='context-tip'>
+    <b>💡 O que são tipos de inconsistência?</b> São as categorias de divergências fiscais detectadas pelo sistema,
+    como: divergência entre DIME e NFe, omissão de receitas, crédito indevido, etc.
+    Cada tipo tem comportamentos diferentes de regularização.
+    </div>
+    """, unsafe_allow_html=True)
+
     df_tipos = dados.get('ranking_tipos', pd.DataFrame())
     if df_tipos.empty:
         df_tipos = dados.get('tipos_inconsistencia', pd.DataFrame())
-    
+
     if df_tipos.empty:
         st.error("Dados não disponíveis.")
         return
-    
+
     # KPIs
     st.markdown("<div class='sub-header'>📊 Visão Geral</div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
-        st.metric("Total Tipos", len(df_tipos))
+        st.metric("Total Tipos", len(df_tipos),
+                  help="Quantidade de tipos distintos de inconsistências fiscais cadastradas no sistema.")
     with col2:
         if 'qtd_existentes' in df_tipos.columns:
             total = df_tipos['qtd_existentes'].sum()
-            st.metric("Total Inconsistências", f"{int(total):,}")
+            st.metric("Total Inconsistências", f"{int(total):,}",
+                      help="Soma de todas as inconsistências existentes de todos os tipos.")
     with col3:
         if 'valor_existentes' in df_tipos.columns:
             valor = df_tipos['valor_existentes'].sum()
-            st.metric("Valor Total", formatar_valor_br(valor))
+            st.metric("Valor Total", formatar_valor_br(valor),
+                      help="Soma dos valores de ICMS de todas as inconsistências existentes.")
     with col4:
         if 'taxa_autonomia_pct' in df_tipos.columns:
             media = df_tipos['taxa_autonomia_pct'].mean()
-            st.metric("Média Autonomia", f"{media:.1f}%")
+            st.metric("Média Autonomia", f"{media:.1f}%",
+                      help="Média da taxa de autonomia entre todos os tipos. Tipos com baixa autonomia podem exigir mais fiscalização.")
     
     st.divider()
     
@@ -994,29 +1188,42 @@ def pagina_tipos_inconsistencia(dados, filtros):
 
 def pagina_performance_contadores(dados, filtros):
     st.markdown("<h1 class='main-header'>👥 Performance dos Contadores</h1>", unsafe_allow_html=True)
-    
+
+    # Dica de contexto
+    st.markdown("""
+    <div class='context-tip'>
+    <b>💡 Sobre os contadores:</b> Este ranking mostra a performance dos profissionais contábeis responsáveis pelas empresas.
+    Contadores com alta taxa de autonomia indicam boa prática fiscal e orientação aos clientes.
+    Contadores com baixa performance podem precisar de capacitação ou orientação.
+    </div>
+    """, unsafe_allow_html=True)
+
     df_cont = dados.get('performance_contadores', pd.DataFrame())
     if df_cont.empty:
         st.error("Dados não disponíveis.")
         return
-    
+
     # KPIs
     st.markdown("<div class='sub-header'>📊 Visão Geral</div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
-        st.metric("Total Contadores", len(df_cont))
+        st.metric("Total Contadores", len(df_cont),
+                  help="Quantidade de contadores/escritórios que atendem empresas com inconsistências.")
     with col2:
         if 'qtd_empresas' in df_cont.columns:
-            st.metric("Total Empresas", f"{df_cont['qtd_empresas'].sum():,}")
+            st.metric("Total Empresas", f"{df_cont['qtd_empresas'].sum():,}",
+                      help="Soma de todas as empresas atendidas pelos contadores listados.")
     with col3:
         if 'taxa_autonomia_pct' in df_cont.columns:
             media = df_cont['taxa_autonomia_pct'].mean()
-            st.metric("Média Autonomia", f"{media:.1f}%")
+            st.metric("Média Autonomia", f"{media:.1f}%",
+                      help="Média da taxa de autonomia dos contadores. Indica capacidade geral de regularização.")
     with col4:
         if 'score_performance' in df_cont.columns:
             media_score = df_cont['score_performance'].mean()
-            st.metric("Score Médio", f"{media_score:.1f}")
+            st.metric("Score Médio", f"{media_score:.1f}",
+                      help="Pontuação média de performance dos contadores. Varia de 0 a 100.")
     
     st.divider()
     
@@ -1080,47 +1287,60 @@ def pagina_performance_contadores(dados, filtros):
 
 def pagina_analise_temporal(dados, filtros):
     st.markdown("<h1 class='main-header'>📈 Análise Temporal</h1>", unsafe_allow_html=True)
-    
+
+    # Dica de contexto
+    st.markdown("""
+    <div class='context-tip'>
+    <b>💡 Análise de tendências:</b> Acompanhe a evolução mensal das inconsistências e taxas.
+    Os deltas (▲▼) mostram a variação em relação ao mês anterior.
+    Tendências positivas na taxa de autonomia indicam melhoria no processo de autorregularização.
+    </div>
+    """, unsafe_allow_html=True)
+
     df_evol = dados.get('evolucao_mensal', pd.DataFrame())
     df_evol_daf = dados.get('evolucao_mensal_daf', pd.DataFrame())
-    
+
     if df_evol.empty:
         st.error("Dados não disponíveis.")
         return
-    
+
     # KPIs
     st.markdown("<div class='sub-header'>📊 Evolução Geral</div>", unsafe_allow_html=True)
-    
+
     if 'nu_per_ref' in df_evol.columns:
         df_evol_sorted = df_evol.sort_values('nu_per_ref', ascending=False)
-        
+
         if len(df_evol_sorted) >= 2:
             ultimo = df_evol_sorted.iloc[0]
             penultimo = df_evol_sorted.iloc[1]
-            
+
             col1, col2, col3, col4 = st.columns(4)
-            
+
             with col1:
                 qtd_atual = ultimo.get('qtd_ativas', 0)
                 qtd_ant = penultimo.get('qtd_ativas', 0)
                 delta = qtd_atual - qtd_ant if qtd_ant > 0 else 0
-                st.metric("Ativas (Último Mês)", f"{int(qtd_atual):,}", delta=f"{int(delta):,}")
-            
+                st.metric("Ativas (Último Mês)", f"{int(qtd_atual):,}", delta=f"{int(delta):,}",
+                          help="Quantidade de inconsistências ativas no último mês. Delta mostra variação vs mês anterior.")
+
             with col2:
                 res_atual = ultimo.get('qtd_resolvidas_malha', 0)
                 res_ant = penultimo.get('qtd_resolvidas_malha', 0)
                 delta = res_atual - res_ant if res_ant > 0 else 0
-                st.metric("Resol. Malha", f"{int(res_atual):,}", delta=f"{int(delta):,}")
-            
+                st.metric("Resol. Malha", f"{int(res_atual):,}", delta=f"{int(delta):,}",
+                          help="Inconsistências resolvidas pelo contribuinte no último mês. Aumento é positivo.")
+
             with col3:
                 taxa_atual = ultimo.get('taxa_autonomia_pct', 0)
                 taxa_ant = penultimo.get('taxa_autonomia_pct', 0)
                 delta = taxa_atual - taxa_ant
-                st.metric("Taxa Autonomia", f"{taxa_atual:.1f}%", delta=f"{delta:.1f}%")
-            
+                st.metric("Taxa Autonomia", f"{taxa_atual:.1f}%", delta=f"{delta:.1f}%",
+                          help="Taxa de autonomia do último mês. Meta: ≥60%. Aumento indica melhoria.")
+
             with col4:
                 valor_atual = ultimo.get('valor_ativas', 0)
-                st.metric("Valor Ativas", formatar_valor_br(valor_atual))
+                st.metric("Valor Ativas", formatar_valor_br(valor_atual),
+                          help="Valor total de ICMS das inconsistências ativas no último mês.")
     
     st.divider()
     
@@ -1187,26 +1407,39 @@ def pagina_analise_temporal(dados, filtros):
 
 def pagina_alertas(dados, filtros):
     st.markdown("<h1 class='main-header'>⚠️ Central de Alertas</h1>", unsafe_allow_html=True)
-    
+
+    # Dica de contexto
+    st.markdown("""
+    <div class='context-tip'>
+    <b>💡 Sobre os alertas:</b> O sistema monitora automaticamente duas situações críticas:
+    <b>Autonomia Baixa</b> (taxa < 40%) indica que contribuintes não estão regularizando espontaneamente.
+    <b>Fiscalização Alta</b> (taxa > 25%) indica excesso de intervenção fiscal.
+    </div>
+    """, unsafe_allow_html=True)
+
     df_dafs = dados.get('performance_dafs', pd.DataFrame())
     if df_dafs.empty:
         st.error("Dados não disponíveis.")
         return
-    
+
     alertas_autonomia = df_dafs[df_dafs.get('flag_alerta_autonomia_baixa', 0) == 1] if 'flag_alerta_autonomia_baixa' in df_dafs.columns else pd.DataFrame()
     alertas_fiscalizacao = df_dafs[df_dafs.get('flag_alerta_fiscalizacao_alta', 0) == 1] if 'flag_alerta_fiscalizacao_alta' in df_dafs.columns else pd.DataFrame()
-    
+
     col1, col2, col3, col4 = st.columns(4)
     total_alertas = len(alertas_autonomia) + len(alertas_fiscalizacao)
     with col1:
-        st.metric("Total Alertas", total_alertas)
+        st.metric("Total Alertas", total_alertas,
+                  help="Soma de todos os alertas ativos (autonomia baixa + fiscalização alta).")
     with col2:
-        st.metric("🎯 Autonomia Baixa", len(alertas_autonomia))
+        st.metric("🎯 Autonomia Baixa", len(alertas_autonomia),
+                  help="DAFs com taxa de autonomia inferior a 40%. Contribuintes não estão regularizando espontaneamente.")
     with col3:
-        st.metric("🚨 Fiscalização Alta", len(alertas_fiscalizacao))
+        st.metric("🚨 Fiscalização Alta", len(alertas_fiscalizacao),
+                  help="DAFs com taxa de fiscalização superior a 25%. Muitas inconsistências exigindo ação fiscal.")
     with col4:
         pct = (total_alertas / len(df_dafs) * 100) if len(df_dafs) > 0 else 0
-        st.metric("% em Alerta", f"{pct:.1f}%")
+        st.metric("% em Alerta", f"{pct:.1f}%",
+                  help="Percentual de DAFs que possuem ao menos um alerta ativo.")
     
     st.divider()
     
@@ -1233,40 +1466,55 @@ def pagina_alertas(dados, filtros):
 
 def pagina_drill_down_daf(dados, filtros):
     st.markdown("<h1 class='main-header'>🔎 Drill-Down por DAF</h1>", unsafe_allow_html=True)
-    
+
+    # Dica de contexto
+    st.markdown("""
+    <div class='context-tip'>
+    <b>💡 Análise detalhada:</b> Selecione uma DAF para ver seus indicadores específicos.
+    Os cards coloridos indicam o nível de performance. Veja a evolução temporal e identifique tendências.
+    </div>
+    """, unsafe_allow_html=True)
+
     df_dafs = dados.get('performance_dafs', pd.DataFrame())
     df_evol_daf = dados.get('evolucao_mensal_daf', pd.DataFrame())
-    
+
     if df_dafs.empty:
         st.error("Dados não disponíveis.")
         return
-    
+
     dafs_opcoes = df_dafs[['id_equipe', 'nm_equipe']].drop_duplicates()
     dafs_opcoes['label'] = dafs_opcoes['id_equipe'].astype(str) + ' - ' + dafs_opcoes['nm_equipe'].fillna('')
-    daf_sel = st.selectbox("Selecione DAF:", dafs_opcoes['label'].tolist())
-    
+    daf_sel = st.selectbox("Selecione DAF:", dafs_opcoes['label'].tolist(),
+                           help="Escolha uma Delegacia de Fiscalização para ver seus indicadores detalhados.")
+
     if not daf_sel:
         return
-    
+
     id_equipe = int(daf_sel.split(' - ')[0])
     df_daf = df_dafs[df_dafs['id_equipe'] == id_equipe].iloc[0]
-    
+
     st.divider()
-    
+
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         nivel = df_daf.get('ind_autonomia_nivel', 'N/A')
-        criar_card_indicador("Taxa Autonomia", f"{df_daf.get('taxa_autonomia_pct', 0):.1f}%", nivel, "🎯")
+        criar_card_indicador("Taxa Autonomia", f"{df_daf.get('taxa_autonomia_pct', 0):.1f}%", nivel, "🎯",
+                             tooltip=TOOLTIPS['taxa_autonomia'])
     with col2:
         taxa_fisc = df_daf.get('taxa_em_fiscalizacao_pct', 0)
         nivel_fisc = 'EXCELENTE' if taxa_fisc <= 10 else 'BOM' if taxa_fisc <= 20 else 'MEDIO' if taxa_fisc <= 30 else 'CRITICO'
-        criar_card_indicador("Taxa Fiscalização", f"{taxa_fisc:.1f}%", nivel_fisc, "🚨")
+        criar_card_indicador("Taxa Fiscalização", f"{taxa_fisc:.1f}%", nivel_fisc, "🚨",
+                             tooltip=TOOLTIPS['taxa_fiscalizacao'])
     with col3:
-        st.metric("Empresas", f"{int(df_daf.get('qtd_empresas_acompanhadas', 0)):,}")
-        st.metric("Contadores", f"{int(df_daf.get('qtd_contadores_acompanhados', 0)):,}")
+        st.metric("Empresas", f"{int(df_daf.get('qtd_empresas_acompanhadas', 0)):,}",
+                  help="Quantidade de empresas acompanhadas por esta DAF.")
+        st.metric("Contadores", f"{int(df_daf.get('qtd_contadores_acompanhados', 0)):,}",
+                  help="Quantidade de contadores que atendem empresas desta DAF.")
     with col4:
-        st.metric("Valor Existentes", formatar_valor_br(df_daf.get('valor_incons_existentes', 0)))
-        st.metric("Valor Total", formatar_valor_br(df_daf.get('valor_total_inconsistencias', 0)))
+        st.metric("Valor Existentes", formatar_valor_br(df_daf.get('valor_incons_existentes', 0)),
+                  help="Valor de ICMS das inconsistências ativas desta DAF.")
+        st.metric("Valor Total", formatar_valor_br(df_daf.get('valor_total_inconsistencias', 0)),
+                  help="Valor total de ICMS em inconsistências (ativas + resolvidas) desta DAF.")
     
     st.divider()
     
@@ -1309,26 +1557,97 @@ def pagina_drill_down_daf(dados, filtros):
 
 def pagina_sobre(dados, filtros):
     st.markdown("<h1 class='main-header'>ℹ️ Sobre o Sistema</h1>", unsafe_allow_html=True)
+
     st.markdown("""
     ## Sistema de Monitoramento de Malhas Fiscais - V3.0
-    
+
     ### 📊 Fluxo das Inconsistências:
-    1. **IDENTIFICADA** → Sistema detecta inconsistência
-    2. **ATIVA** → Contribuinte tem prazo para regularizar
-       - Via DDE (Declaração Débitos)
-       - Via Retificação (correção de declaração)
-       - Exclusão por auditor (a pedido)
-    3. **PAF** → Se não regulariza → Fiscalização formal
-    4. **RESOLVIDA** → Conclusão do processo
-    
-    ### ⚠️ IMPORTANTE:
-    "Resolvida Fiscal" pode incluir **exclusões por auditores** que precisam ser monitoradas!
-    
-    ### 📈 Métricas:
-    - **Taxa Autonomia:** Meta ≥ 60%
-    - **Taxa Fiscalização:** Meta ≤ 20%
-    
-    **Versão:** 3.0 | **Schema:** niat.mlh_*
+
+    ```
+    ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+    │   IDENTIFICADA  │ ──► │      ATIVA      │ ──► │    RESOLVIDA    │
+    │ Sistema detecta │     │ Prazo p/ regular│     │   Conclusão     │
+    └─────────────────┘     └────────┬────────┘     └─────────────────┘
+                                     │
+                          ┌──────────┴──────────┐
+                          ▼                     ▼
+                ┌─────────────────┐   ┌─────────────────┐
+                │  Autorregular.  │   │      PAF        │
+                │  (DDE/Retific.) │   │  Fiscalização   │
+                └─────────────────┘   └─────────────────┘
+    ```
+
+    ### 📈 Métricas e Metas:
+    """)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        <div class='alert-positivo'>
+        <b>🎯 Taxa de Autonomia</b><br>
+        <b>Meta: ≥ 60%</b><br>
+        Percentual de inconsistências resolvidas pelo próprio contribuinte.
+        Quanto maior, melhor a autorregularização.
+        </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown("""
+        <div class='alert-atencao'>
+        <b>🚨 Taxa de Fiscalização</b><br>
+        <b>Meta: ≤ 20%</b><br>
+        Percentual que exigiu ação fiscal.
+        Quanto menor, melhor a eficiência do sistema.
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("""
+    ### ⚠️ Pontos de Atenção:
+    """)
+
+    st.markdown("""
+    <div class='alert-critico'>
+    <b>Exclusões Manuais (cd_situacao = 11)</b><br>
+    "Resolvida Fiscal" pode incluir <b>exclusões por auditores</b> que precisam ser monitoradas!
+    Taxas de exclusão acima de 10% merecem investigação.
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    ### 📊 Legenda de Níveis:
+    """)
+
+    st.markdown("""
+    <div class='legenda-cores'>
+        <div class='legenda-item'><div class='legenda-cor' style='background:#10b981'></div><span>EXCELENTE (≥80)</span></div>
+        <div class='legenda-item'><div class='legenda-cor' style='background:#84cc16'></div><span>BOM (60-79)</span></div>
+        <div class='legenda-item'><div class='legenda-cor' style='background:#fbbf24'></div><span>MÉDIO (40-59)</span></div>
+        <div class='legenda-item'><div class='legenda-cor' style='background:#f97316'></div><span>BAIXO (20-39)</span></div>
+        <div class='legenda-item'><div class='legenda-cor' style='background:#ef4444'></div><span>CRÍTICO (<20)</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    ### 📋 Glossário de Termos:
+    """)
+
+    with st.expander("Ver glossário completo"):
+        st.markdown("""
+        | Termo | Descrição |
+        |-------|-----------|
+        | **DAF** | Delegacia de Fiscalização - unidade responsável pelo acompanhamento |
+        | **Inconsistência** | Divergência fiscal detectada pelo sistema (ex: DIME x NFe) |
+        | **Existente** | Inconsistência ativa aguardando regularização |
+        | **Resolvida Malha** | Regularizada pelo contribuinte (autorregularização) |
+        | **Resolvida Fiscal** | Resolvida via PAF ou exclusão por auditor |
+        | **Em Fiscalização** | Em processo de fiscalização (PAF aberto) |
+        | **DDE** | Declaração de Débitos Estaduais |
+        | **PAF** | Processo Administrativo Fiscal |
+        | **Score** | Pontuação de performance (0-100) |
+        """)
+
+    st.markdown("""
+    ---
+    **Versão:** 3.0 | **Schema:** niat.mlh_* | **Desenvolvido por:** SEFAZ/SC
     """)
     kpis = calcular_kpis_gerais(dados)
     col1, col2, col3, col4 = st.columns(4)
